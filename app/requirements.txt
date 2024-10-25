@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+openai==0.28
+python-dotenv
+psycopg2-binary
+torch
+pydantic
+transformers
+scikit-learn
+minio
+sentence_transformers
+pandas
+PyMuPDF
+requests
+peft
+reportlab
