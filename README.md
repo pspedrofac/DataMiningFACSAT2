@@ -1,93 +1,111 @@
 
-# Docker and Docker Compose Installation Guide
+# Microservices Architecture for Satellite Preventive Maintenance Using Machine Learning (Facsat2)
 
-This guide provides step-by-step instructions for installing Docker and Docker Compose on Ubuntu-based systems.
+## Overview
+The **Facsat2** project is focused on implementing a machine learning-based system for **preventive maintenance of satellites**. Specifically, this architecture is designed to detect faults in the Facsat2 satellite, enhancing its reliability and performance in space by analyzing telemetry data and identifying early signs of failure.
 
-## Prerequisites
+The system leverages a **microservices architecture**, allowing for high scalability, modularity, and ease of deployment. The components interact through REST APIs, manage machine learning experiments, orchestrate tasks, and store artifacts and telemetry data.
 
-Before starting the installation, ensure you have sudo privileges on your system.
+## Architecture Components
 
-## Installation Steps
+### 1. **Telemetry Data Interface**
+- **Purpose**: Serves as the input point for satellite telemetry data, allowing operators to upload and analyze satellite health information. The interface interacts with the system to detect potential faults and provide predictions for preventive maintenance.
+- **Connection**: Sends telemetry data to the REST API for further analysis and fault detection.
 
-### 1. Update Package Database
+### 2. **REST API (FastAPI)**
+- **Purpose**: The core service responsible for managing communication between the system components. It processes telemetry data, interacts with machine learning models for fault detection, and returns results to the interface.
+- **Connection**: Interfaces with MLflow for managing models, retrieves metadata from PostgreSQL, and sends tasks to Apache Airflow for orchestration.
+
+### 3. **MLflow**
+- **Purpose**: Manages machine learning experiments and models. It tracks the performance of the models used for fault detection and manages the storage of artifacts, including telemetry data and model parameters.
+- **Connection**: Works with MinIO to store artifacts, interacts with the REST API to deploy and update models, and stores metadata in PostgreSQL.
+
+### 4. **Apache Airflow**
+- **Purpose**: Orchestrates workflows related to satellite telemetry analysis and machine learning model management. It schedules tasks such as data ingestion, preprocessing, and fault detection analysis.
+- **Connection**: Collaborates with MLflow to schedule the execution of machine learning models and ensure that workflows are completed efficiently. It also interacts with PostgreSQL for storing task execution metadata.
+
+### 5. **MinIO**
+- **Purpose**: An S3-compatible object storage system used to store machine learning artifacts such as telemetry data and models. It provides persistent storage for the system's datasets and model outputs.
+- **Connection**: Receives and stores artifacts from MLflow, enabling access to historical data and models used for satellite fault detection.
+
+### 6. **PostgreSQL**
+- **Purpose**: Serves as the primary relational database for storing metadata, including experiment logs, model performance metrics, and workflow execution data.
+- **Connection**: Supports both MLflow and Apache Airflow by storing and managing operational data related to satellite fault detection tasks.
+
+### 7. **MongoDB**
+- **Purpose**: Stores unstructured or semi-structured satellite telemetry data for further analysis and integration with machine learning workflows.
+- **Connection**: Provides persistent storage for telemetry data ingested from satellite systems and utilized by the REST API and machine learning models.
+- **Ports**: Exposes the default MongoDB port `27017` and connects to other services in the system. Accessible at:
+  - MongoDB port: `27017`
+
+---
+
+## Setting Up the System
+
+### 1. **Install Docker & Docker Compose**
+
+Before you begin, ensure Docker and Docker Compose are installed. If not, follow these steps:
+
 ```bash
 sudo apt update -y
+sudo apt install -y docker-ce docker-compose
 ```
 
-### 2. Install Required Packages
+### 2. **Clone the Repository and Build the Architecture**
+
+Clone the project repository and build the Docker containers:
+
 ```bash
-sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+git clone https://github.com/your-repo/facsat2-fault-detection.git
+cd facsat2-fault-detection
+docker-compose build
+docker-compose up -d
 ```
 
-### 3. Add Docker's GPG Key
+### 3. **Database Configuration**
+
+Ensure that the `mlflow_db` database exists for MLflow by running:
+
 ```bash
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+docker exec -it postgres_airflow psql -U airflow
+CREATE DATABASE mlflow_db;
 ```
 
-### 4. Add Docker Repository
-```bash
-sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-```
+### 4. **Access the Services**
 
-### 5. Install Docker
-```bash
-sudo apt update -y
-sudo apt install -y docker-ce
-```
+Once the services are running, access the different components locally:
 
-### 6. Configure Docker Service
-```bash
-sudo systemctl start docker
-sudo systemctl enable docker
-sudo systemctl status docker
-```
+- **Apache Airflow**: [http://localhost:8080](http://localhost:8080)
+- **MLflow**: [http://localhost:5000](http://localhost:5000)
+- **MinIO (Service)**: [http://localhost:9000](http://localhost:9000)
+- **MinIO (Buckets Administration)**: [http://localhost:9001](http://localhost:9001)
+- **Telemetry Data Interface**: [http://localhost:8800](http://localhost:8800)
+- **FastAPI**: [http://localhost:8000](http://localhost:8000)
+- **MongoDB**: MongoDB runs at `mongodb://localhost:27017`
 
-### 7. Install Docker Compose
-```bash
-sudo curl -L "https://github.com/docker/compose/releases/download/v2.12.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-```
+If you're using an external server, replace `localhost` with the server's IP address.
 
-### 8. Set Docker Compose Permissions
-```bash
-sudo chmod +x /usr/local/bin/docker-compose
-```
+### 5. **Configure `.env` File**
 
-### 9. Create Symbolic Link
-```bash
-sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
-```
+Modify the `.env` file to customize the ports, database credentials, and other environment variables.
 
-### 10. Add User to Docker Group
-```bash
-sudo usermod -aG docker $USER
-```
+---
 
-### 11. Verify Installation
-```bash
-docker-compose --version
-```
+## Architecture Diagram
 
-## Post-Installation Notes
+This architecture relies on Docker-based microservices that communicate through well-defined APIs. Each service performs a specialized function, whether it be managing data, running machine learning models, or orchestrating tasks. The diagram below outlines the flow of data between services, ensuring efficient detection and management of potential faults in the satellite.
 
-1. After adding your user to the Docker group, you need to log out and log back in for the changes to take effect.
-2. You can now start building containers using `docker-compose build`
-3. All commands listed above require administrator privileges (sudo)
+---
 
-## Troubleshooting
+## Future Improvements
 
-If you encounter permission issues:
-1. Make sure you've logged out and logged back in after adding your user to the Docker group
-2. Verify Docker service is running: `sudo systemctl status docker`
-3. Check if your user is in the Docker group: `groups $USER`
+- **Scalability**: Use Kubernetes to deploy and manage the system at scale.
+- **Security**: Implement OAuth or API gateways to secure access to the system components.
+- **Monitoring**: Integrate Prometheus and Grafana for real-time system monitoring and health checks.
+- **Fault Tolerance**: Ensure failover mechanisms are in place to handle component failures without system-wide disruptions.
 
-## Additional Resources
+---
 
-- [Official Docker Documentation](https://docs.docker.com/)
-- [Docker Compose Documentation](https://docs.docker.com/compose/)
+## License
 
-## Support
-
-If you encounter any issues during installation, please:
-1. Check the system requirements
-2. Ensure all commands were executed with proper permissions
-3. Verify your system's compatibility with Docker
+This project is licensed under the MIT License. See the `LICENSE` file for more details.
