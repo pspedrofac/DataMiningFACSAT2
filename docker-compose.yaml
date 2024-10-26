@@ -34,18 +34,38 @@ x-airflow-common: &airflow-common
       condition: service_healthy
 
 services:
-  mongodb:
+  # Comentando la configuración original de MongoDB
+  # mongodb:
+  #   image: mongo:latest
+  #   container_name: mongodb
+  #   restart: always
+  #   environment:
+  #     MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+  #     MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-adminpassword}
+  #     MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-mydatabase}
+  #   ports:
+  #     - "${MONGO_PORT:-27017}:27017"
+  #   volumes:
+  #     - mongodb_data:/data/db
+  #   networks:
+  #     - backend
+  #   healthcheck:
+  #     test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 20s
+
+  # Nueva configuración para el nodo secundario
+  mongodb_secondary:
     image: mongo:latest
-    container_name: mongodb
+    container_name: mongo-secondary
     restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-adminpassword}
-      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-mydatabase}
+    command: mongod --replSet rs0 --bind_ip_all
     ports:
-      - "${MONGO_PORT:-27017}:27017"
+      - "27017:27017"
     volumes:
-      - mongodb_data:/data/db
+      - mongodb_secondary_data:/data/db
     networks:
       - backend
     healthcheck:
@@ -144,7 +164,8 @@ services:
     depends_on:
       mlflow:
         condition: service_healthy
-      mongodb:
+      # mongodb:
+      mongodb_secondary:  # Cambiado de mongodb a mongodb_secondary
         condition: service_healthy
     ports:
       - "8000:8000" 
@@ -224,6 +245,8 @@ networks:
     driver: bridge
 
 volumes:
+  mongodb_secondary_data:
+    name: mongodb_secondary_data
   minio_data:
   mongodb_data:
   mlflow_data:
