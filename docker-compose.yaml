@@ -1,4 +1,4 @@
-version: '3'
+version: '3.7'
 
 x-airflow-common: &airflow-common
   build: './airflow'
@@ -29,34 +29,8 @@ x-airflow-common: &airflow-common
   networks:
     - backend
   user: "${AIRFLOW_UID:-50000}:${AIRFLOW_GID:-0}"
-  depends_on:
-    minio:
-      condition: service_healthy
 
 services:
-  # Comentando la configuración original de MongoDB
-  # mongodb:
-  #   image: mongo:latest
-  #   container_name: mongodb
-  #   restart: always
-  #   environment:
-  #     MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
-  #     MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-adminpassword}
-  #     MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-mydatabase}
-  #   ports:
-  #     - "${MONGO_PORT:-27017}:27017"
-  #   volumes:
-  #     - mongodb_data:/data/db
-  #   networks:
-  #     - backend
-  #   healthcheck:
-  #     test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 20s
-
-  # Nueva configuración para el nodo secundario
   mongodb_secondary:
     image: mongo:latest
     container_name: mongo-secondary
@@ -73,7 +47,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 20s
 
   minio:
     restart: always
@@ -101,8 +74,7 @@ services:
     image: minio/mc:latest
     container_name: minio_create_bucket
     depends_on:
-      minio:
-        condition: service_healthy
+      - minio
     networks:
       - backend
     entrypoint: >
@@ -117,7 +89,7 @@ services:
       '
 
   mlflow:
-    build: 
+    build:
       context: ./mlflow
       dockerfile: Dockerfile
     container_name: mlflow_tracking
@@ -140,19 +112,16 @@ services:
     networks:
       - backend
     depends_on:
-      minio:
-        condition: service_healthy
-      create_s3_buckets:
-        condition: service_completed_successfully
+      - minio
+      - create_s3_buckets
     healthcheck:
       test: curl --fail http://localhost:5000/health || exit 1
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 10s
 
   fastapi:
-    build: 
+    build:
       context: ./app
       dockerfile: Dockerfile
     env_file:
@@ -162,13 +131,10 @@ services:
       - ./app:/app
     container_name: fastapi_server
     depends_on:
-      mlflow:
-        condition: service_healthy
-      # mongodb:
-      mongodb_secondary:  # Cambiado de mongodb a mongodb_secondary
-        condition: service_healthy
+      - mlflow
+      - mongodb_secondary
     ports:
-      - "8000:8000" 
+      - "8000:8000"
     networks:
       - backend
     environment:
@@ -200,8 +166,7 @@ services:
       retries: 5
     restart: always
     depends_on:
-      airflow-init:
-        condition: service_completed_successfully
+      - airflow-init
 
   airflow-scheduler:
     <<: *airflow-common
@@ -214,8 +179,7 @@ services:
       retries: 5
     restart: always
     depends_on:
-      airflow-init:
-        condition: service_completed_successfully
+      - airflow-init
 
   airflow-init:
     <<: *airflow-common
@@ -246,7 +210,7 @@ networks:
 
 volumes:
   mongodb_secondary_data:
-    name: mongodb_secondary_data
   minio_data:
   mongodb_data:
   mlflow_data:
+
